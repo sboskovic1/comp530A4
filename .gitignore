@@ -1,0 +1,57 @@
+# Compiled object files
+*.o
+*.obj
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Compiled dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled static libraries
+*.a
+*.lib
+*.la
+
+# Executables
+*.exe
+*.out
+*.app
+a.out     # default gcc/clang output
+
+# Core dumps
+*.core
+core
+core.*
+
+# Debug / profiling
+*.dSYM/
+*.stackdump
+*.pdb
+
+# Build directories
+/bin/
+/build/
+/out/
+/dist/
+
+# CMake / Make
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# IDE / Editor files
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Database files
+*.dblite
