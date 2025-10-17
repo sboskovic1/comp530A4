@@ -183,11 +183,14 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 
 	// Leaf node just append
 	if (currentPage.getType() == MyDB_PageType::RegularPage) {
+		cout << "Adding record to leaf node" << endl;
 		bool success = currentPage.append(appendMe);
 		if (!success) { // split page
+			cout << "Not successful in adding leaf node" << endl;
 			return split(currentPage, appendMe);
 		}
 	} else if (currentPage.getType() == MyDB_PageType::DirectoryPage) {
+		cout << "In internal page, going to next layer" << endl;
 		// internal node, recursively find page
 		MyDB_INRecordPtr inRec = getINRecord();
 		MyDB_RecordIteratorPtr iter = currentPage.getIterator(inRec);
@@ -203,7 +206,7 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 				break;
 			}
 		}
-
+		cout << "Going to page " << childPtr << endl;
 		MyDB_RecordPtr maybeSplit = append(childPtr, appendMe);
 		// Handle potential child split
 		if (maybeSplit != nullptr) {
