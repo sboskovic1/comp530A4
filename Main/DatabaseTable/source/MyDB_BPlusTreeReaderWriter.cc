@@ -8,6 +8,7 @@
 #include "MyDB_PageListIteratorSelfSortingAlt.h"
 #include "MyDB_PageListIteratorAlt.h"
 #include "RecordComparator.h"
+#include <algorithm>
 
 MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName, MyDB_TablePtr forMe, 
 	MyDB_BufferManagerPtr myBuffer) : MyDB_TableReaderWriter (forMe, myBuffer) {
@@ -60,14 +61,142 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
 	return false;
 }
 
-void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr) {
+void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
+	// Base case for an empty tree: Create a internal node (root) with an infinity internal record 
+	// that points to an empty leaf page
+	if (rootLocation == -1) {
+		rootLocation = this->getNumPages();
+		// Create internal node with infinity internal record
+		MyDB_PageReaderWriter rootPage = MyDB_PageReaderWriter(*this, rootLocation);
+		rootPage.setType(MyDB_PageType::DirectoryPage);
+
+		MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
+
+		// Point root node to an empty leaf page
+		int newPageNumber = this->getNumPages();
+		MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
+		newPage.setType(MyDB_PageType::RegularPage);
+		newINRec.setPtr(newPageNumber);
+
+		rootPage.append(make_shared<MyDB_INRecord>(newINRec));
+	}
+
+	// Create new internal page if root gets split
+	MyDB_RecordPtr maybeSplit = append(rootLocation, appendMe);
+	if (maybeSplit != nullptr) {
+		int newPageNumber = this->getNumPages();
+		MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
+		newPage.setType(MyDB_PageType::DirectoryPage);
+		newPage.append(maybeSplit);
+		
+		// Add a new internal node to point to the old root (key is automatically to largest possible value)
+		MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
+		newINRec.setPtr(rootLocation);
+		newPage.append(make_shared<MyDB_INRecord>(newINRec));
+		rootLocation = newPageNumber;
+		getTable()->setRootLocation(newPageNumber);
+	}
 }
 
-MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter, MyDB_RecordPtr) {
-	return nullptr;
+MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitMe, MyDB_RecordPtr andMe) {
+	// Sort all records (splitMe records + andMe)
+	vector<MyDB_RecordPtr> records;
+	MyDB_RecordPtr tempRec = getEmptyRecord();
+	MyDB_RecordIteratorPtr iter = splitMe.getIterator(tempRec);
+
+	while (iter->hasNext()) {
+		iter->getNext();
+
+		// Deep copy of the record
+		// Allocate a temporary buffer for copying the record
+		size_t size = tempRec->getBinarySize();
+		vector<char> buffer(size);
+
+		// Serialize the other record into the buffer
+		tempRec->toBinary(buffer.data());
+
+		// Copy the binary into a new record
+		MyDB_RecordPtr recordCopy = getEmptyRecord();
+		recordCopy->fromBinary(buffer.data());
+
+		records.push_back(recordCopy);
+	}
+	records.push_back(andMe);
+
+	std::sort(records.begin(), records.end(), [this](MyDB_RecordPtr a, MyDB_RecordPtr b) {
+		auto compare = buildComparator(a, b);
+		return compare();
+	});
+
+	// Split records in half
+	int mid = records.size() / 2;
+	vector<MyDB_RecordPtr> lower(records.begin(), records.begin() + mid);
+	vector<MyDB_RecordPtr> upper(records.begin() + mid, records.end());
+
+	// Create a new page for the lower half
+	int newPageNumber = this->getNumPages();
+	MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
+	newPage.setType(splitMe.getType());
+	for (auto &rec : lower) {
+		newPage.append(rec);
+	}
+
+	// Replace current page contents with upper half
+	splitMe.clear();
+	for (auto &rec : upper) {
+		splitMe.append(rec);
+	}
+
+	// Return an internal record (key, ptr) pointing to the new page
+	MyDB_INRecord newINRec = MyDB_INRecord(getKey(lower.back()));
+	newINRec.setPtr(newPageNumber);
+	return make_shared<MyDB_INRecord>(newINRec);
 }
 
-MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int, MyDB_RecordPtr) {
+MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordPtr appendMe) {
+	MyDB_PageReaderWriter currentPage = (*this)[whichPage];
+
+	// TODO: How to handle empty B Tree
+	if (whichPage == rootLocation) {
+
+	}
+
+	// Leaf node just append
+	if (currentPage.getType() == MyDB_PageType::RegularPage) {
+		bool success = currentPage.append(appendMe);
+		if (!success) { // split page
+			return split(currentPage, appendMe);
+		}
+	} else if (currentPage.getType() == MyDB_PageType::DirectoryPage) {
+		// internal node, recursively find page
+		MyDB_INRecordPtr inRec = getINRecord();
+		MyDB_RecordIteratorPtr iter = currentPage.getIterator(inRec);
+
+		int childPtr = -1;
+		while (iter->hasNext()) {
+			iter->getNext();
+
+			auto compare = buildComparator(inRec, appendMe);
+			if (compare()) {
+				// If keyToInsert < inRec's key, go to child pointed to by inRec
+				childPtr = inRec->getPtr();
+				break;
+			}
+		}
+
+		MyDB_RecordPtr maybeSplit = append(childPtr, appendMe);
+		// Handle potential child split
+		if (maybeSplit != nullptr) {
+			if (!currentPage.append(maybeSplit)) {
+				return split(currentPage, maybeSplit);
+			}
+			MyDB_RecordPtr lhs = getEmptyRecord();
+			MyDB_RecordPtr rhs = getEmptyRecord();
+			auto compare = buildComparator(lhs, rhs);
+			currentPage.sort(compare, lhs, rhs);
+		}
+	}
+
 	return nullptr;
 }
 
