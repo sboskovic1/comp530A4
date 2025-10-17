@@ -6,6 +6,7 @@
 #include "MyDB_BPlusTreeReaderWriter.h"
 #include "MyDB_PageReaderWriter.h"
 #include "MyDB_PageListIteratorSelfSortingAlt.h"
+#include "MyDB_PageListIteratorAlt.h"
 #include "RecordComparator.h"
 
 MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName, MyDB_TablePtr forMe, 
@@ -22,16 +23,40 @@ MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName,
 	rootLocation = getTable ()->getRootLocation ();
 }
 
-MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAlt (MyDB_AttValPtr, MyDB_AttValPtr) {
-	return nullptr;
+MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
+    vector<MyDB_PageReaderWriter> pages;
+    discoverPages(rootLocation, pages, lhs, rhs);
+    return make_shared<MyDB_PageListIteratorSelfSortingAlt>(pages);
 }
 
-MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getRangeIteratorAlt (MyDB_AttValPtr, MyDB_AttValPtr) {
-	return nullptr;
+MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
+    vector<MyDB_PageReaderWriter> pages;
+    discoverPages(rootLocation, pages, lhs, rhs);
+    return make_shared<MyDB_PageListIteratorAlt>(pages);
 }
 
 
-bool MyDB_BPlusTreeReaderWriter :: discoverPages (int, vector <MyDB_PageReaderWriter> &, MyDB_AttValPtr, MyDB_AttValPtr) {
+bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_PageReaderWriter> & list, MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
+    MyDB_RecordPtr currentRec = make_shared<MyDB_Record>(nullptr);
+    MyDB_PageReaderWriter page = (*this)[whichPage];
+    if (page.getType() != MyDB_PageType::RegularPage) {
+        list.push_back(page);
+        return true;
+    }
+    MyDB_RecordIteratorAltPtr iter = page.getIteratorAlt();
+    bool lastPage = false;
+    while (iter->advance() && !lastPage) {
+        iter->getCurrent(currentRec);
+        MyDB_AttValPtr key = getKey(currentRec);
+        auto leftCmp = buildComparator(currentRec, make_shared<MyDB_Record>(MyDB_INRecord(lhs)));
+        auto rightCmp = buildComparator(make_shared<MyDB_Record>(MyDB_INRecord(rhs)), currentRec);
+        if (leftCmp() && !lastPage) { // Use custom comparator to check if this page should be added
+            int idx = static_pointer_cast<MyDB_INRecord>(currentRec)->getPtr();
+            if (!discoverPages(idx, list, lhs, rhs) && rightCmp()) {
+                lastPage = true;
+            }
+        }
+    }
 	return false;
 }
 
@@ -51,6 +76,19 @@ MyDB_INRecordPtr MyDB_BPlusTreeReaderWriter :: getINRecord () {
 }
 
 void MyDB_BPlusTreeReaderWriter :: printTree () {
+    vector<MyDB_PageReaderWriter> curr = {(*this)[rootLocation]};
+    vector<MyDB_PageReaderWriter> children = {};
+    int level = 1;
+    while (!curr.empty()) {
+        cout << "Level " << level++ << endl;
+        cout << "[";
+        for (auto &page : curr) {
+            
+        }
+        cout << "]" << endl;
+        curr = children;
+        children.clear();
+    }
 }
 
 MyDB_AttValPtr MyDB_BPlusTreeReaderWriter :: getKey (MyDB_RecordPtr fromMe) {
