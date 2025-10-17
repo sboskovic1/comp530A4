@@ -91,7 +91,6 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		rootPage.setType(MyDB_PageType::DirectoryPage);
 
 		cout << "Creating initial internal record with inifnity key" << endl;
-		// MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
 		MyDB_INRecordPtr newINRec = getINRecord();
 
 		// Point root node to an empty leaf page
@@ -115,9 +114,9 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		newPage.append(maybeSplit);
 		
 		// Add a new internal node to point to the old root (key is automatically to largest possible value)
-		MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
-		newINRec.setPtr(rootLocation);
-		newPage.append(make_shared<MyDB_INRecord>(newINRec));
+		MyDB_INRecordPtr newINRec = getINRecord();
+		newINRec->setPtr(rootLocation);
+		newPage.append(newINRec);
 		rootLocation = newPageNumber;
 		getTable()->setRootLocation(newPageNumber);
 	}
@@ -173,9 +172,9 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	}
 
 	// Return an internal record (key, ptr) pointing to the new page
-	MyDB_INRecord newINRec = MyDB_INRecord(getKey(lower.back()));
-	newINRec.setPtr(newPageNumber);
-	return make_shared<MyDB_INRecord>(newINRec);
+	MyDB_INRecordPtr newINRec = getINRecord();
+	newINRec->setPtr(newPageNumber);
+	return newINRec;
 }
 
 MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordPtr appendMe) {
@@ -218,6 +217,7 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 		}
 	}
 
+	printTree();
 	return nullptr;
 }
 
