@@ -218,20 +218,22 @@ void MyDB_BPlusTreeReaderWriter :: printTree () {
     vector<MyDB_PageReaderWriter> curr = {(*this)[rootLocation]};
     vector<MyDB_PageReaderWriter> children = {};
     int level = 1;
+    cout << "Root: {" << rootLocation << "}" << endl;
     while (!curr.empty()) {
         cout << "Level " << level++ << endl;
         cout << "[";
         for (auto &page : curr) {
 			MyDB_RecordPtr temp = getEmptyRecord();
-			MyDB_RecordIteratorPtr pageIter = page.getIterator(temp);
-			while (pageIter->hasNext()) {
-				pageIter->getNext();
+			MyDB_RecordIteratorAltPtr pageIter = page.getIteratorAlt();
+			while (pageIter->advance()) {
+				pageIter->getCurrent(temp);
+                MyDB_AttValPtr key = getKey(temp);
+                cout << "{ " << (page.getType() == MyDB_PageType::RegularPage ? "INTERNAL" : "LEAF") << " : ";
+                cout << key->toString() << " }";
 				if (page.getType() == MyDB_PageType::DirectoryPage) {
-					int childPage = temp->getPtr()
-					children.push_back(getIterator)
+					children.push_back(page);
 				}
 			}
-            cout << page.get
         }
         cout << "]" << endl;
         curr = children;
