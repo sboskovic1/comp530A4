@@ -91,16 +91,17 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		rootPage.setType(MyDB_PageType::DirectoryPage);
 
 		cout << "Creating initial internal record with inifnity key" << endl;
-		MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
+		// MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
+		MyDB_INRecordPtr newINRec = getINRecord();
 
 		// Point root node to an empty leaf page
 		int newPageNumber = this->getNumPages();
 		MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
 		newPage.setType(MyDB_PageType::RegularPage);
-		newINRec.setPtr(newPageNumber);
+		newINRec->setPtr(newPageNumber);
 		
 		cout << "Adding initial internal record to rootPage" << endl;
-		rootPage.append(make_shared<MyDB_INRecord>(newINRec));
+		rootPage.append(newINRec);
 		cout << "Done adding initial internal record to rootPage" << endl;
 	}
 
