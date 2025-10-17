@@ -171,11 +171,6 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordPtr appendMe) {
 	MyDB_PageReaderWriter currentPage = (*this)[whichPage];
 
-	// TODO: How to handle empty B Tree
-	if (whichPage == rootLocation) {
-
-	}
-
 	// Leaf node just append
 	if (currentPage.getType() == MyDB_PageType::RegularPage) {
 		bool success = currentPage.append(appendMe);
