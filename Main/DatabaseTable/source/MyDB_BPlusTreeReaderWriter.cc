@@ -27,7 +27,22 @@ MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName,
 MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
     vector<MyDB_PageReaderWriter> pages;
     discoverPages(rootLocation, pages, lhs, rhs);
-    return make_shared<MyDB_PageListIteratorSelfSortingAlt>(pages);
+
+    MyDB_RecordPtr left = getEmptyRecord();
+    MyDB_RecordPtr right = getEmptyRecord();
+
+    MyDB_RecordPtr tempRec = getEmptyRecord();
+
+    MyDB_INRecordPtr lhsRec = getINRecord();
+    MyDB_INRecordPtr rhsRec = getINRecord();
+    lhsRec->setKey(lhs);
+    rhsRec->setKey(rhs);
+
+    function <bool ()> comparator = buildComparator(left, right);
+    function <bool ()> lowComparator = buildComparator(tempRec, lhsRec);
+    function <bool ()> highComparator = buildComparator(rhsRec, tempRec);
+
+    return make_shared<MyDB_PageListIteratorSelfSortingAlt>(pages, left, right, comparator, tempRec, lowComparator, highComparator, true);
 }
 
 MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
