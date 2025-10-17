@@ -22,6 +22,7 @@ MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName,
 
 	// and the root location
 	rootLocation = getTable ()->getRootLocation ();
+	cout << "Initiating bplus tree with root location: " << rootLocation << endl;
 }
 
 MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
@@ -77,14 +78,19 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
 }
 
 void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
+	cout << "appending record in high level append " << appendMe << endl;
 	// Base case for an empty tree: Create a internal node (root) with an infinity internal record 
 	// that points to an empty leaf page
 	if (rootLocation == -1) {
+		cout << "Creating initial root node for b plus tree" << endl;
 		rootLocation = this->getNumPages();
+
 		// Create internal node with infinity internal record
+		cout << "Creating initial root page" << endl;
 		MyDB_PageReaderWriter rootPage = MyDB_PageReaderWriter(*this, rootLocation);
 		rootPage.setType(MyDB_PageType::DirectoryPage);
 
+		cout << "Creating initial internal record with inifnity key" << endl;
 		MyDB_INRecord newINRec = MyDB_INRecord(getKey(appendMe));
 
 		// Point root node to an empty leaf page
@@ -92,9 +98,12 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
 		newPage.setType(MyDB_PageType::RegularPage);
 		newINRec.setPtr(newPageNumber);
-
+		
+		cout << "Adding initial internal record to rootPage" << endl;
 		rootPage.append(make_shared<MyDB_INRecord>(newINRec));
+		cout << "Done adding initial internal record to rootPage" << endl;
 	}
+
 
 	// Create new internal page if root gets split
 	MyDB_RecordPtr maybeSplit = append(rootLocation, appendMe);
@@ -169,6 +178,7 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 }
 
 MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordPtr appendMe) {
+	cout << "Appending record in lower level append on page " << whichPage << endl;
 	MyDB_PageReaderWriter currentPage = (*this)[whichPage];
 
 	// Leaf node just append
