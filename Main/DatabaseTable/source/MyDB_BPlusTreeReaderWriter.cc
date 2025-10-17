@@ -77,6 +77,17 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
 	return false;
 }
 
+// Helper function to print all records
+void printRecords(const vector<MyDB_RecordPtr>& records, const string& label) {
+    cout << "---- " << label << " ----" << endl;
+    for (size_t i = 0; i < records.size(); i++) {
+        cout << "Record " << i << ": " << endl;
+        cout << records[i];
+        cout << endl;
+    }
+    cout << "-------------------------" << endl;
+}
+
 void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 	cout << "appending record in high level append " << appendMe << endl;
 	// Base case for an empty tree: Create a internal node (root) with an infinity internal record 
@@ -127,10 +138,11 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	vector<MyDB_RecordPtr> records;
 	MyDB_RecordPtr tempRec = getEmptyRecord();
 	MyDB_RecordIteratorPtr iter = splitMe.getIterator(tempRec);
-
+	
+	cout << "Aggregating records together for sorting" << endl;
 	while (iter->hasNext()) {
 		iter->getNext();
-
+		cout << "Current record beging sorted: " << tempRec << endl;
 		// Deep copy of the record
 		// Allocate a temporary buffer for copying the record
 		size_t size = tempRec->getBinarySize();
@@ -146,31 +158,49 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 		records.push_back(recordCopy);
 	}
 	records.push_back(andMe);
+	// Print before sorting
+	printRecords(records, "Records BEFORE sort");
 
 	std::sort(records.begin(), records.end(), [this](MyDB_RecordPtr a, MyDB_RecordPtr b) {
 		auto compare = buildComparator(a, b);
 		return compare();
 	});
 
+	// Print after sorting
+	printRecords(records, "Records AFTER sort");
+
 	// Split records in half
 	int mid = records.size() / 2;
 	vector<MyDB_RecordPtr> lower(records.begin(), records.begin() + mid);
 	vector<MyDB_RecordPtr> upper(records.begin() + mid, records.end());
 
+	// Print both halves for debugging
+	printRecords(lower, "LOWER half (left child)");
+	printRecords(upper, "UPPER half (right child)");
+
 	// Create a new page for the lower half
 	int newPageNumber = this->getNumPages();
+	cout << "Creating new page for appending" << endl;
 	MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
 	newPage.setType(splitMe.getType());
+	cout << "Finished creating page" << endl;
+	newPage.clear();
 	for (auto &rec : lower) {
+		cout << "IN lower append" << endl;
+		cout << "Appending in lower half: " << rec << endl;
 		newPage.append(rec);
 	}
 
+	cout << "Replacing current pages in upper half" << endl;
 	// Replace current page contents with upper half
 	splitMe.clear();
+	cout << "finished clearing original page" << endl;
 	for (auto &rec : upper) {
+		cout << "In upper append" << endl;
+		cout << "Appending in upper half: " << rec << endl;
 		splitMe.append(rec);
 	}
-
+	
 	// Return an internal record (key, ptr) pointing to the new page
 	MyDB_INRecordPtr newINRec = getINRecord();
 	newINRec->setPtr(newPageNumber);
@@ -242,7 +272,7 @@ void MyDB_BPlusTreeReaderWriter :: printTree () {
 			while (pageIter->advance()) {
 				pageIter->getCurrent(temp);
                 MyDB_AttValPtr key = getKey(temp);
-                cout << "{ " << (page.getType() == MyDB_PageType::RegularPage ? "INTERNAL" : "LEAF") << " : ";
+                cout << "{ " << (page.getType() == MyDB_PageType::RegularPage ? "LEAF" : "INTERNAL") << " : ";
                 cout << key->toString() << " }";
 				if (page.getType() == MyDB_PageType::DirectoryPage) {
 					children.push_back(page);

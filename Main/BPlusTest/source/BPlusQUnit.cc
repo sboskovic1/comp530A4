@@ -49,7 +49,7 @@ int main (int argc, char *argv[]) {
 	case 1:
 	{
 		cout << "TEST 0... creating tree for tiny table, on suppkey " << flush << endl;
-		MyDB_BufferManagerPtr myMgr = make_shared <MyDB_BufferManager> (1000, 128, "tempFile");
+		MyDB_BufferManagerPtr myMgr = make_shared <MyDB_BufferManager> (800, 128, "tempFile");
 		MyDB_BPlusTreeReaderWriter supplierTable ("suppkey", myTable, myMgr);
 		supplierTable.loadFromTextFile ("supplierTiny.tbl");
 		// there should be 50 records
@@ -61,6 +61,7 @@ int main (int argc, char *argv[]) {
 				myIter->getCurrent (temp);
 				counter++;
 		}
+		cout << "Counter value:  " << counter << endl;
 		bool result = (counter == 50);
 		if (result)
 			cout << "\tTEST PASSED\n";
