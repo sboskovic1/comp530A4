@@ -222,7 +222,16 @@ void MyDB_BPlusTreeReaderWriter :: printTree () {
         cout << "Level " << level++ << endl;
         cout << "[";
         for (auto &page : curr) {
-            
+			MyDB_RecordPtr temp = getEmptyRecord();
+			MyDB_RecordIteratorPtr pageIter = page.getIterator(temp);
+			while (pageIter->hasNext()) {
+				pageIter->getNext();
+				if (page.getType() == MyDB_PageType::DirectoryPage) {
+					int childPage = temp->getPtr()
+					children.push_back(getIterator)
+				}
+			}
+            cout << page.get
         }
         cout << "]" << endl;
         curr = children;
