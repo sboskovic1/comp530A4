@@ -94,11 +94,13 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 	// that points to an empty leaf page
 	if (rootLocation == -1) {
 		cout << "Creating initial root node for b plus tree" << endl;
-		rootLocation = this->getNumPages();
+		cout << "Initial number of pages: " << this-> getNumPages() << endl;
+		rootLocation = 0;
+		cout << "Initial root location: " << rootLocation << endl;
 
 		// Create internal node with infinity internal record
 		cout << "Creating initial root page" << endl;
-		MyDB_PageReaderWriter rootPage = MyDB_PageReaderWriter(*this, rootLocation);
+		MyDB_PageReaderWriter rootPage = (*this)[rootLocation];
 		rootPage.setType(MyDB_PageType::DirectoryPage);
 
 		cout << "Creating initial internal record with inifnity key" << endl;
@@ -106,31 +108,41 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 
 		// Point root node to an empty leaf page
 		int newPageNumber = this->getNumPages();
-		MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
+		cout << "New page number for leaf page: " << newPageNumber << endl;
+		MyDB_PageReaderWriter newPage = (*this)[newPageNumber];
 		newPage.setType(MyDB_PageType::RegularPage);
 		newINRec->setPtr(newPageNumber);
 		
 		cout << "Adding initial internal record to rootPage" << endl;
+		cout << "Initial ptr for root internal record: " << newINRec->getPtr() << endl;
 		rootPage.append(newINRec);
 		cout << "Done adding initial internal record to rootPage" << endl;
 	}
 
 
 	// Create new internal page if root gets split
+	cout << "Current rootLocation: " << rootLocation << endl;
 	MyDB_RecordPtr maybeSplit = append(rootLocation, appendMe);
 	if (maybeSplit != nullptr) {
+		cout << "Updating root location" << endl;
 		int newPageNumber = this->getNumPages();
-		MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
+		cout << "New page number to add " << newPageNumber << endl;
+		MyDB_PageReaderWriter newPage = (*this)[newPageNumber];
 		newPage.setType(MyDB_PageType::DirectoryPage);
 		newPage.append(maybeSplit);
-		
+		cout << "Created new rootPage and added maybeSplit" << endl;
+
 		// Add a new internal node to point to the old root (key is automatically to largest possible value)
+		cout << "Adding new infinity internal node to root page " << endl;
 		MyDB_INRecordPtr newINRec = getINRecord();
 		newINRec->setPtr(rootLocation);
 		newPage.append(newINRec);
 		rootLocation = newPageNumber;
 		getTable()->setRootLocation(newPageNumber);
 	}
+
+	cout << "Print tree at end of high level append" << endl;
+	// printTree();
 }
 
 MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitMe, MyDB_RecordPtr andMe) {
@@ -159,7 +171,7 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	}
 	records.push_back(andMe);
 	// Print before sorting
-	printRecords(records, "Records BEFORE sort");
+	// printRecords(records, "Records BEFORE sort");
 
 	std::sort(records.begin(), records.end(), [this](MyDB_RecordPtr a, MyDB_RecordPtr b) {
 		auto compare = buildComparator(a, b);
@@ -167,7 +179,7 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	});
 
 	// Print after sorting
-	printRecords(records, "Records AFTER sort");
+	// printRecords(records, "Records AFTER sort");
 
 	// Split records in half
 	int mid = records.size() / 2;
@@ -180,29 +192,30 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 
 	// Create a new page for the lower half
 	int newPageNumber = this->getNumPages();
-	cout << "Creating new page for appending" << endl;
-	MyDB_PageReaderWriter newPage = MyDB_PageReaderWriter(*this, newPageNumber);
+	cout << "Creating new page for appending: " << newPageNumber << endl;
+	MyDB_PageReaderWriter newPage = (*this)[newPageNumber];
 	newPage.setType(splitMe.getType());
-	cout << "Finished creating page" << endl;
+	// cout << "Finished creating page" << endl;
 	newPage.clear();
 	for (auto &rec : lower) {
-		cout << "IN lower append" << endl;
-		cout << "Appending in lower half: " << rec << endl;
+		// cout << "IN lower append" << endl;
+		// cout << "Appending in lower half: " << rec << endl;
 		newPage.append(rec);
 	}
 
-	cout << "Replacing current pages in upper half" << endl;
+	// cout << "Replacing current pages in upper half" << endl;
 	// Replace current page contents with upper half
 	splitMe.clear();
-	cout << "finished clearing original page" << endl;
+	// cout << "finished clearing original page" << endl;
 	for (auto &rec : upper) {
-		cout << "In upper append" << endl;
-		cout << "Appending in upper half: " << rec << endl;
+		// cout << "In upper append" << endl;
+		// cout << "Appending in upper half: " << rec << endl;
 		splitMe.append(rec);
 	}
 	
 	// Return an internal record (key, ptr) pointing to the new page
 	MyDB_INRecordPtr newINRec = getINRecord();
+	newINRec->setKey(getKey(lower.back()));
 	newINRec->setPtr(newPageNumber);
 	return newINRec;
 }
@@ -226,10 +239,14 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 		MyDB_RecordIteratorPtr iter = currentPage.getIterator(inRec);
 
 		int childPtr = -1;
+		// cout << "iter->hasNext() " << iter->hasNext() << endl;
 		while (iter->hasNext()) {
 			iter->getNext();
 
-			auto compare = buildComparator(inRec, appendMe);
+			auto compare = buildComparator(appendMe, inRec);
+			// cout << "Comparing internal rec with append Me" << endl;
+			// cout << "Result of compare: " << compare() << endl;
+			// cout << "Internal record ptr: " << inRec->getPtr() << endl;
 			if (compare()) {
 				// If keyToInsert < inRec's key, go to child pointed to by inRec
 				childPtr = inRec->getPtr();
@@ -240,17 +257,19 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 		MyDB_RecordPtr maybeSplit = append(childPtr, appendMe);
 		// Handle potential child split
 		if (maybeSplit != nullptr) {
+			cout << "Split happened, adding new ptr to current page " << whichPage << endl;
 			if (!currentPage.append(maybeSplit)) {
+				cout << "Failed to add new internal node to current page, splitting again" << endl;
 				return split(currentPage, maybeSplit);
 			}
 			MyDB_RecordPtr lhs = getEmptyRecord();
 			MyDB_RecordPtr rhs = getEmptyRecord();
 			auto compare = buildComparator(lhs, rhs);
-			currentPage.sort(compare, lhs, rhs);
+			currentPage.sortInPlace(compare, lhs, rhs);
 		}
 	}
 
-	printTree();
+	// printTree();
 	return nullptr;
 }
 
