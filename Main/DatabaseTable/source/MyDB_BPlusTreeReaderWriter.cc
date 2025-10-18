@@ -39,10 +39,6 @@ MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAl
     MyDB_INRecordPtr rhsRec = getINRecord();
     lhsRec->setKey(lhs);
     rhsRec->setKey(rhs);
-
-    if (getKey(lhsRec)->toInt() == 19) {
-        printTree();
-    }
  
     function <bool ()> comparator = buildComparator(left, right);
     function <bool ()> lowComparator = buildComparator(tempRec, lhsRec);
@@ -78,26 +74,12 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
         left->setKey(lhs);
         right->setKey(rhs);
 
-        auto leftCmp = buildComparator(left, currentRec);
+        auto leftCmp = buildComparator(currentRec, left);
         auto rightCmp = buildComparator(right, currentRec);
-        if (leftCmp() && !lastPage) { // Use custom comparator to check if this page should be added
+        if (leftCmp() || !lastPage) { // Use custom comparator to check if this page should be added
             int idx = static_pointer_cast<MyDB_INRecord>(currentRec)->getPtr();
             if (!discoverPages(idx, list, lhs, rhs) && rightCmp()) {
                 lastPage = true;
-            }
-        }
-    }
-    if (whichPage == rootLocation && getKey(left)->toInt() == 19) {
-        cout << "left: " << getKey(left)->toInt() << ", right: " << getKey(right)->toInt() << endl;
-        cout << "Discovered pages: " << list.size() << endl;
-        for (size_t i = 0; i < list.size(); i++) {
-            MyDB_PageReaderWriter p = list[i];
-            MyDB_RecordIteratorAltPtr it = p.getIteratorAlt();
-            cout << "Page " << i << " contents: " << endl;
-            MyDB_RecordPtr temp = getEmptyRecord();
-            while (it->advance()) {
-                it->getCurrent(temp);
-                cout << getKey(temp)->toString() << endl;
             }
         }
     }
