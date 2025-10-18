@@ -26,7 +26,6 @@ MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName,
 }
 
 MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
-    // printTree();
     vector<MyDB_PageReaderWriter> pages;
     discoverPages(rootLocation, pages, lhs, rhs);
 
@@ -48,9 +47,10 @@ MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAl
 }
 
 MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
-    vector<MyDB_PageReaderWriter> pages;
-    discoverPages(rootLocation, pages, lhs, rhs);
-    return make_shared<MyDB_PageListIteratorAlt>(pages);
+    return getSortedRangeIteratorAlt(lhs, rhs);
+    // vector<MyDB_PageReaderWriter> pages;
+    // discoverPages(rootLocation, pages, lhs, rhs);
+    // return make_shared<MyDB_PageListIteratorAlt>(pages);
 }
 
 
@@ -62,11 +62,10 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
         return true;
     }
     MyDB_RecordIteratorAltPtr iter = page.getIteratorAlt();
-    bool lastPage = false;
     currentRec = getINRecord();
     MyDB_INRecordPtr left;
     MyDB_INRecordPtr right;
-    while (iter->advance() && !lastPage) {
+    while (iter->advance()) {
         iter->getCurrent(currentRec);
         MyDB_AttValPtr key = getKey(currentRec);
         left = getINRecord();
@@ -74,15 +73,18 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
         left->setKey(lhs);
         right->setKey(rhs);
 
-        auto leftCmp = buildComparator(currentRec, left);
+        auto leftCmp = buildComparator(left, currentRec);
         auto rightCmp = buildComparator(right, currentRec);
-        if (leftCmp() || !lastPage) { // Use custom comparator to check if this page should be added
+        if (leftCmp()) { // Use custom comparator to check if this page should be added
             int idx = static_pointer_cast<MyDB_INRecord>(currentRec)->getPtr();
-            if (!discoverPages(idx, list, lhs, rhs) && rightCmp()) {
-                lastPage = true;
+            discoverPages(idx, list, lhs, rhs);
+            if (rightCmp()) {
+               break;
             }
         }
+
     }
+
 	return false;
 }
 
