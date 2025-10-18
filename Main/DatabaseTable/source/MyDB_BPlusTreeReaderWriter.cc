@@ -117,6 +117,7 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		cout << "Initial ptr for root internal record: " << newINRec->getPtr() << endl;
 		rootPage.append(newINRec);
 		cout << "Done adding initial internal record to rootPage" << endl;
+        printTree();
 	}
 
 
@@ -187,8 +188,8 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	vector<MyDB_RecordPtr> upper(records.begin() + mid, records.end());
 
 	// Print both halves for debugging
-	printRecords(lower, "LOWER half (left child)");
-	printRecords(upper, "UPPER half (right child)");
+	// printRecords(lower, "LOWER half (left child)");
+	// printRecords(upper, "UPPER half (right child)");
 
 	// Create a new page for the lower half
 	int newPageNumber = this->getNumPages();
@@ -269,7 +270,7 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 		}
 	}
 
-	// printTree();
+	printTree();
 	return nullptr;
 }
 
@@ -281,27 +282,38 @@ void MyDB_BPlusTreeReaderWriter :: printTree () {
     vector<MyDB_PageReaderWriter> curr = {(*this)[rootLocation]};
     vector<MyDB_PageReaderWriter> children = {};
     int level = 1;
+    cout << endl;
     cout << "Root: {" << rootLocation << "}" << endl;
     while (!curr.empty()) {
         cout << "Level " << level++ << endl;
         cout << "[";
         for (auto &page : curr) {
-			MyDB_RecordPtr temp = getEmptyRecord();
-			MyDB_RecordIteratorAltPtr pageIter = page.getIteratorAlt();
-			while (pageIter->advance()) {
-				pageIter->getCurrent(temp);
-                MyDB_AttValPtr key = getKey(temp);
-                cout << "{ " << (page.getType() == MyDB_PageType::RegularPage ? "LEAF" : "INTERNAL") << " : ";
-                cout << key->toString() << " }";
-				if (page.getType() == MyDB_PageType::DirectoryPage) {
-					children.push_back(page);
-				}
-			}
+            MyDB_INRecordPtr inRec = getINRecord();
+            MyDB_RecordPtr rec = getEmptyRecord();
+            MyDB_RecordIteratorAltPtr pageIter = page.getIteratorAlt();
+            if (page.getType() == MyDB_PageType::RegularPage) {
+                cout << " { LEAF : ";
+            } else {
+                cout << " { INTERNAL : ";
+            }
+
+            while (pageIter->advance()) { 
+                if (page.getType() == MyDB_PageType::DirectoryPage) {
+                    pageIter->getCurrent(inRec);
+                    cout << getKey(inRec)->toString() <<  "-" << inRec->getPtr() << " ";
+                    children.push_back((*this)[inRec->getPtr()]);
+                } else {
+                    pageIter->getCurrent(rec);
+                    cout << getKey(rec)->toString() << " ";
+                }
+            }
+            cout << " } ";
         }
         cout << "]" << endl;
         curr = children;
         children.clear();
     }
+    cout << endl;
 }
 
 MyDB_AttValPtr MyDB_BPlusTreeReaderWriter :: getKey (MyDB_RecordPtr fromMe) {
