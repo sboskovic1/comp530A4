@@ -21,7 +21,9 @@ MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName,
 	whichAttIsOrdering = res.first;
 
 	// and the root location
-	rootLocation = getTable ()->getRootLocation ();
+	rootLocation = -1;
+	getTable ()->setRootLocation (rootLocation);
+	cout << "Number of pages in table: " << getNumPages() << endl; 
 	cout << "Initiating bplus tree with root location: " << rootLocation << endl;
 }
 
@@ -107,6 +109,7 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		cout << "Creating initial root node for b plus tree" << endl;
 		cout << "Initial number of pages: " << this-> getNumPages() << endl;
 		rootLocation = 0;
+		getTable()->setRootLocation(rootLocation);
 		cout << "Initial root location: " << rootLocation << endl;
 
 		// Create internal node with infinity internal record
