@@ -92,6 +92,7 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 	// Base case for an empty tree: Create a internal node (root) with an infinity internal record 
 	// that points to an empty leaf page
 	if (rootLocation == -1) {
+		cout << "appending record in high level append " << appendMe << endl;
 		cout << "Creating initial root node for b plus tree" << endl;
 		cout << "Initial number of pages: " << this-> getNumPages() << endl;
 		rootLocation = 0;
@@ -116,27 +117,37 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 		cout << "Initial ptr for root internal record: " << newINRec->getPtr() << endl;
 		rootPage.append(newINRec);
 		cout << "Done adding initial internal record to rootPage" << endl;
-        // printTree();
+        printTree();
 	}
 
 
 	// Create new internal page if root gets split
+	cout << "Current rootLocation: " << rootLocation << endl;
 	MyDB_RecordPtr maybeSplit = append(rootLocation, appendMe);
 	if (maybeSplit != nullptr) {
 		int newPageNumber = this->getNumPages();
+		cout << "Updating root location" << endl;
+		cout << "New page number to add " << newPageNumber << endl;
 		MyDB_PageReaderWriter newPage = (*this)[newPageNumber];
 		newPage.setType(MyDB_PageType::DirectoryPage);
 		newPage.append(maybeSplit);
+		cout << "Created new rootPage and added maybeSplit" << endl;
 
 		// Add a new internal node to point to the old root (key is automatically to largest possible value)
+		cout << "Adding new infinity internal node to root page " << endl;
 		MyDB_INRecordPtr newINRec = getINRecord();
 		newINRec->setPtr(rootLocation);
 		newPage.append(newINRec);
 		rootLocation = newPageNumber;
 		getTable()->setRootLocation(newPageNumber);
+		MyDB_INRecordPtr lhs = getINRecord();
+		MyDB_INRecordPtr rhs = getINRecord();
+		auto compare = buildComparator(lhs, rhs);
+		newPage.sortInPlace(compare, lhs, rhs);
 	}
 
-	// printTree();
+	cout << "Print tree at end of high level append" << endl;
+	printTree();
 }
 
 MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitMe, MyDB_RecordPtr andMe) {
@@ -145,10 +156,10 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	MyDB_RecordPtr tempRec = getEmptyRecord();
 	MyDB_RecordIteratorPtr iter = splitMe.getIterator(tempRec);
 	
-	// cout << "Aggregating records together for sorting" << endl;
+	cout << "Aggregating records together for sorting" << endl;
 	while (iter->hasNext()) {
 		iter->getNext();
-		// cout << "Current record beging sorted: " << tempRec << endl;
+		cout << "Current record beging sorted: " << tempRec << endl;
 		// Deep copy of the record
 		// Allocate a temporary buffer for copying the record
 		size_t size = tempRec->getBinarySize();
@@ -167,10 +178,12 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	// Print before sorting
 	// printRecords(records, "Records BEFORE sort");
 
-	std::sort(records.begin(), records.end(), [this](MyDB_RecordPtr a, MyDB_RecordPtr b) {
-		auto compare = buildComparator(a, b);
-		return compare();
-	});
+	if (splitMe.getType() == MyDB_PageType::DirectoryPage) {
+		std::sort(records.begin(), records.end(), [this](MyDB_RecordPtr a, MyDB_RecordPtr b) {
+			auto compare = buildComparator(a, b);
+			return compare();
+		});
+	}
 
 	// Print after sorting
 	// printRecords(records, "Records AFTER sort");
@@ -181,8 +194,8 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 	vector<MyDB_RecordPtr> upper(records.begin() + mid, records.end());
 
 	// Print both halves for debugging
-	// printRecords(lower, "LOWER half (left child)");
-	// printRecords(upper, "UPPER half (right child)");
+	printRecords(lower, "LOWER half (left child)");
+	printRecords(upper, "UPPER half (right child)");
 
 	// Create a new page for the lower half
 	int newPageNumber = this->getNumPages();
@@ -217,14 +230,17 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: split (MyDB_PageReaderWriter splitM
 
 MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordPtr appendMe) {
 	MyDB_PageReaderWriter currentPage = (*this)[whichPage];
-
+	cout << "Appending record in lower level append on page " << whichPage << endl;
 	// Leaf node just append
 	if (currentPage.getType() == MyDB_PageType::RegularPage) {
+		cout << "Adding record to leaf node" << endl;
 		bool success = currentPage.append(appendMe);
 		if (!success) { // split page
+			cout << "Not successful in adding leaf node" << endl;
 			return split(currentPage, appendMe);
 		}
 	} else if (currentPage.getType() == MyDB_PageType::DirectoryPage) {
+		cout << "In internal page, going to next layer" << endl;
 		// internal node, recursively find page
 		MyDB_INRecordPtr inRec = getINRecord();
 		MyDB_RecordIteratorPtr iter = currentPage.getIterator(inRec);
@@ -244,20 +260,23 @@ MyDB_RecordPtr MyDB_BPlusTreeReaderWriter :: append (int whichPage, MyDB_RecordP
 				break;
 			}
 		}
+		cout << "Going to page " << childPtr << endl;
 		MyDB_RecordPtr maybeSplit = append(childPtr, appendMe);
 		// Handle potential child split
 		if (maybeSplit != nullptr) {
+			cout << "Split happened, adding new ptr to current page " << whichPage << endl;
 			if (!currentPage.append(maybeSplit)) {
+				cout << "Failed to add new internal node to current page, splitting again" << endl;
 				return split(currentPage, maybeSplit);
 			}
-			MyDB_RecordPtr lhs = getEmptyRecord();
-			MyDB_RecordPtr rhs = getEmptyRecord();
+			MyDB_INRecordPtr lhs = getINRecord();
+			MyDB_INRecordPtr rhs = getINRecord();
 			auto compare = buildComparator(lhs, rhs);
 			currentPage.sortInPlace(compare, lhs, rhs);
 		}
 	}
 
-	// printTree();
+	printTree();
 	return nullptr;
 }
 

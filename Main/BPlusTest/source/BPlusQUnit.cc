@@ -69,9 +69,33 @@ int main (int argc, char *argv[]) {
 		// 	cout << "\tTEST FAILED\n";
         //         QUNIT_IS_TRUE (result);
 		
-		cout << "TEST 1... creating tree for small table, on suppkey " << flush;
+		// cout << "TEST 1... creating tree for small table, on suppkey " << flush;
+		// MyDB_BufferManagerPtr myMgr = make_shared <MyDB_BufferManager> (1024, 128, "tempFile");
+		// MyDB_BPlusTreeReaderWriter supplierTable ("suppkey", myTable, myMgr);
+		// supplierTable.loadFromTextFile ("supplier.tbl");
+
+        //         // there should be 10000 records
+        //         MyDB_RecordPtr temp = supplierTable.getEmptyRecord ();
+        //         MyDB_RecordIteratorAltPtr myIter = supplierTable.getIteratorAlt ();
+
+        //         int counter = 0;
+        //         while (myIter->advance ()) {
+        //                 myIter->getCurrent (temp);
+        //                 counter++;
+        //         }
+		// bool result = (counter == 10000);
+		// if (result)
+		// 	cout << "\tTEST PASSED\n";
+		// else
+		// 	cout << "\tTEST FAILED\n";
+        //         QUNIT_IS_TRUE (result);
+	}
+	FALLTHROUGH_INTENDED;
+	case 2:
+	{
+		cout << "TEST 2... creating tree for small table, on nationkey " << flush;
 		MyDB_BufferManagerPtr myMgr = make_shared <MyDB_BufferManager> (1024, 128, "tempFile");
-		MyDB_BPlusTreeReaderWriter supplierTable ("suppkey", myTable, myMgr);
+		MyDB_BPlusTreeReaderWriter supplierTable ("nationkey", myTable, myMgr);
 		supplierTable.loadFromTextFile ("supplier.tbl");
 
                 // there should be 10000 records
@@ -91,30 +115,6 @@ int main (int argc, char *argv[]) {
                 QUNIT_IS_TRUE (result);
 	}
 	FALLTHROUGH_INTENDED;
-	// case 2:
-	// {
-	// 	cout << "TEST 2... creating tree for small table, on nationkey " << flush;
-	// 	MyDB_BufferManagerPtr myMgr = make_shared <MyDB_BufferManager> (1024, 128, "tempFile");
-	// 	MyDB_BPlusTreeReaderWriter supplierTable ("nationkey", myTable, myMgr);
-	// 	supplierTable.loadFromTextFile ("supplier.tbl");
-
-    //             // there should be 10000 records
-    //             MyDB_RecordPtr temp = supplierTable.getEmptyRecord ();
-    //             MyDB_RecordIteratorAltPtr myIter = supplierTable.getIteratorAlt ();
-
-    //             int counter = 0;
-    //             while (myIter->advance ()) {
-    //                     myIter->getCurrent (temp);
-    //                     counter++;
-    //             }
-	// 	bool result = (counter == 10000);
-	// 	if (result)
-	// 		cout << "\tTEST PASSED\n";
-	// 	else
-	// 		cout << "\tTEST FAILED\n";
-    //             QUNIT_IS_TRUE (result);
-	// }
-	// FALLTHROUGH_INTENDED;
 	// case 3:
 	// {
 	// 	cout << "TEST 3... creating tree for small table, on comment " << flush;
