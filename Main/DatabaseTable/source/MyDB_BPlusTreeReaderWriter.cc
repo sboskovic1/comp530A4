@@ -23,12 +23,15 @@ MyDB_BPlusTreeReaderWriter :: MyDB_BPlusTreeReaderWriter (string orderOnAttName,
 	// and the root location
 	rootLocation = -1;
 	getTable ()->setRootLocation (rootLocation);
-	cout << "Number of pages in table: " << getNumPages() << endl; 
-	cout << "Initiating bplus tree with root location: " << rootLocation << endl;
+	// cout << "Number of pages in table: " << getNumPages() << endl; 
+	// cout << "Initiating bplus tree with root location: " << rootLocation << endl;
 }
 
 MyDB_RecordIteratorAltPtr MyDB_BPlusTreeReaderWriter :: getSortedRangeIteratorAlt (MyDB_AttValPtr lhs, MyDB_AttValPtr rhs) {
     vector<MyDB_PageReaderWriter> pages;
+	// printTree();
+	// cout << "Searching for lhs of " << lhs->toInt() << endl;
+	// cout << "Searching for rhs of " << rhs->toInt() << endl;
     discoverPages(rootLocation, pages, lhs, rhs);
 
     MyDB_RecordPtr left = getEmptyRecord();
@@ -60,6 +63,7 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
     MyDB_RecordPtr currentRec = getEmptyRecord();
     MyDB_PageReaderWriter page = (*this)[whichPage];
     if (page.getType() == MyDB_PageType::RegularPage) {
+		// cout << "Adding leaf page with this these values" << endl;
         list.push_back(page);
         return true;
     }
@@ -74,13 +78,15 @@ bool MyDB_BPlusTreeReaderWriter :: discoverPages (int whichPage, vector <MyDB_Pa
         right = getINRecord();
         left->setKey(lhs);
         right->setKey(rhs);
-
-        auto leftCmp = buildComparator(left, currentRec);
+		// cout << "Checking current internal record key: " << currentRec->getAtt (0)->toInt () << endl;
+        auto leftCmp = buildEqualToComparator(left, currentRec);
         auto rightCmp = buildComparator(right, currentRec);
         if (leftCmp()) { // Use custom comparator to check if this page should be added
             int idx = static_pointer_cast<MyDB_INRecord>(currentRec)->getPtr();
+			// cout << "Going to this page to discover more pages" << endl;
             discoverPages(idx, list, lhs, rhs);
             if (rightCmp()) {
+				// cout << "Not going to future pages to discover pages" << endl;
                break;
             }
         }
@@ -105,33 +111,33 @@ void MyDB_BPlusTreeReaderWriter :: append (MyDB_RecordPtr appendMe) {
 	// Base case for an empty tree: Create a internal node (root) with an infinity internal record 
 	// that points to an empty leaf page
 	if (rootLocation == -1) {
-		cout << "appending record in high level append " << appendMe << endl;
-		cout << "Creating initial root node for b plus tree" << endl;
-		cout << "Initial number of pages: " << this-> getNumPages() << endl;
+		// cout << "appending record in high level append " << appendMe << endl;
+		// cout << "Creating initial root node for b plus tree" << endl;
+		// cout << "Initial number of pages: " << this-> getNumPages() << endl;
 		rootLocation = 0;
 		getTable()->setRootLocation(rootLocation);
-		cout << "Initial root location: " << rootLocation << endl;
+		// cout << "Initial root location: " << rootLocation << endl;
 
 		// Create internal node with infinity internal record
-		cout << "Creating initial root page" << endl;
+		// cout << "Creating initial root page" << endl;
 		MyDB_PageReaderWriter rootPage = (*this)[rootLocation];
 		rootPage.setType(MyDB_PageType::DirectoryPage);
 
-		cout << "Creating initial internal record with inifnity key" << endl;
+		// cout << "Creating initial internal record with inifnity key" << endl;
 		MyDB_INRecordPtr newINRec = getINRecord();
 
 		// Point root node to an empty leaf page
 		int newPageNumber = this->getNumPages();
-		cout << "New page number for leaf page: " << newPageNumber << endl;
+		// cout << "New page number for leaf page: " << newPageNumber << endl;
 		MyDB_PageReaderWriter newPage = (*this)[newPageNumber];
 		newPage.setType(MyDB_PageType::RegularPage);
 		newINRec->setPtr(newPageNumber);
 		
-		cout << "Adding initial internal record to rootPage" << endl;
-		cout << "Initial ptr for root internal record: " << newINRec->getPtr() << endl;
+		// cout << "Adding initial internal record to rootPage" << endl;
+		// cout << "Initial ptr for root internal record: " << newINRec->getPtr() << endl;
 		rootPage.append(newINRec);
-		cout << "Done adding initial internal record to rootPage" << endl;
-        printTree();
+		// cout << "Done adding initial internal record to rootPage" << endl;
+        // printTree();
 	}
 
 
@@ -409,6 +415,42 @@ function <bool ()>  MyDB_BPlusTreeReaderWriter :: buildComparator (MyDB_RecordPt
 		exit (1);
 	}
 }
+
+function<bool()> MyDB_BPlusTreeReaderWriter :: buildEqualToComparator (MyDB_RecordPtr lhs, MyDB_RecordPtr rhs) {
+
+	MyDB_AttValPtr lhAtt, rhAtt;
+
+	// in this case, the LHS is an IN record
+	if (lhs->getSchema () == nullptr) {
+		lhAtt = lhs->getAtt (0);	
+
+	// here, it is a regular data record
+	} else {
+		lhAtt = lhs->getAtt (whichAttIsOrdering);
+	}
+
+	// in this case, the RHS is an IN record
+	if (rhs->getSchema () == nullptr) {
+		rhAtt = rhs->getAtt (0);	
+
+	// here, it is a regular data record
+	} else {
+		rhAtt = rhs->getAtt (whichAttIsOrdering);
+	}
+	
+	// now, build the comparison lambda and return
+	if (orderingAttType->promotableToInt ()) {
+		return [lhAtt, rhAtt] { return lhAtt->toInt () <= rhAtt->toInt (); };
+	} else if (orderingAttType->promotableToDouble ()) {
+		return [lhAtt, rhAtt] { return lhAtt->toDouble () <= rhAtt->toDouble (); };
+	} else if (orderingAttType->promotableToString ()) {
+		return [lhAtt, rhAtt] { return lhAtt->toString () <= rhAtt->toString (); };
+	} else {
+		cout << "This is bad... cannot do anything with the <=.\n";
+		exit (1);
+	}
+}
+
 
 
 #endif

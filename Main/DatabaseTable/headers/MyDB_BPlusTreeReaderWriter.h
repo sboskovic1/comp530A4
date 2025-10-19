@@ -76,6 +76,8 @@ private:
 	// only if the first record has a key value less than the second record
 	function <bool ()> buildComparator (MyDB_RecordPtr lhs, MyDB_RecordPtr rhs);
 
+	function <bool ()> buildEqualToComparator (MyDB_RecordPtr lhs, MyDB_RecordPtr rhs);
+
 	// the location (page number) of the root in the tree
 	int rootLocation;
 
